@@ -54,26 +54,29 @@ export default function LessonPlannerPage() {
 
         buffer += decoder.decode(value, { stream: true })
 
-        // Check for sentinel events
-        const planIdx = buffer.indexOf('\x00PLAN\x00')
-        const errIdx = buffer.indexOf('\x00ERROR\x00')
-
-        if (errIdx !== -1) {
-          const msg = buffer.slice(errIdx + 7)
+        if (buffer.includes('\x00ERROR\x00')) {
+          const msg = buffer.slice(buffer.indexOf('\x00ERROR\x00') + 7).trim()
           throw new Error(msg)
         }
 
-        if (planIdx !== -1) {
-          const jsonStr = buffer.slice(planIdx + 7)
+        if (buffer.includes('\x00RETRY\x00')) {
+          // Model fallback — clear partial stream and show status message
+          const retryMsg = buffer.slice(buffer.indexOf('\x00RETRY\x00') + 8).split('\n')[0]
+          setStreamPreview(retryMsg)
+          buffer = buffer.slice(buffer.indexOf('\n', buffer.indexOf('\x00RETRY\x00')) + 1)
+          continue
+        }
+
+        if (buffer.includes('\x00PLAN\x00')) {
+          const jsonStr = buffer.slice(buffer.indexOf('\x00PLAN\x00') + 7)
           const parsed = JSON.parse(jsonStr)
           setPlan(parsed)
           setStreamPreview('')
           break
         }
 
-        // Show raw JSON being built as live preview (strip leading whitespace/braces noise)
-        const preview = buffer.replace(/\x00.*$/, '')
-        setStreamPreview(preview)
+        // Strip any partial sentinel from the visible preview
+        setStreamPreview(buffer.split('\x00')[0])
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong'
