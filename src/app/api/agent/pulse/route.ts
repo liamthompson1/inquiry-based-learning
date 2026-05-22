@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const maxDuration = 30
 import { evaluateSubmission } from '@/lib/agent/pulse'
 import type { Session, StudentState, Submission } from '@/lib/types'
 

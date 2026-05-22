@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const maxDuration = 60
 import { generateReport } from '@/lib/agent/report'
 import { getSession } from '@/lib/session-store'
 
