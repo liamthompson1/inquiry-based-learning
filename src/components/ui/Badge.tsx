@@ -5,18 +5,22 @@ interface BadgeProps {
   score?: number
 }
 
-const config: Record<Understanding, { label: string; className: string }> = {
-  strong: { label: 'Strong', className: 'bg-emerald-100 text-emerald-800 border border-emerald-200' },
-  partial: { label: 'Partial', className: 'bg-amber-100 text-amber-800 border border-amber-200' },
-  struggling: { label: 'Struggling', className: 'bg-red-100 text-red-800 border border-red-200' }
+const config: Record<Understanding, { label: string; cls: string }> = {
+  strong:     { label: 'Strong',     cls: 'badge-strong' },
+  partial:    { label: 'Partial',    cls: 'badge-partial' },
+  struggling: { label: 'Struggling', cls: 'badge-struggling' }
 }
 
 export default function UnderstandingBadge({ understanding, score }: BadgeProps) {
-  const { label, className } = config[understanding]
+  const { label, cls } = config[understanding]
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${className}`}>
+    <span className={cls} style={{
+      display: 'inline-flex', alignItems: 'center', gap: '4px',
+      padding: '3px 10px', borderRadius: '980px', fontSize: '12px', fontWeight: 500,
+      letterSpacing: '-0.008em'
+    }}>
       {label}
-      {score !== undefined && <span className="opacity-60">· {score}</span>}
+      {score !== undefined && <span style={{ opacity: 0.6 }}>· {score}</span>}
     </span>
   )
 }

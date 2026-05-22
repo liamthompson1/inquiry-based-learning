@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import type { PostLessonReport } from '@/lib/types'
 import Link from 'next/link'
@@ -8,117 +8,106 @@ export default function ReviewPage() {
   const { id } = useParams<{ id: string }>()
   const [report, setReport] = useState<PostLessonReport | null>(null)
   const [loading, setLoading] = useState(false)
-  const [generated, setGenerated] = useState(false)
 
   async function generate() {
     setLoading(true)
     try {
-      const res = await fetch('/api/agent/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: id })
-      })
+      const res = await fetch('/api/agent/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id }) })
       const { report } = await res.json()
       setReport(report)
-      setGenerated(true)
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-gradient-to-r from-indigo-700 to-purple-700 text-white px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Link href="/teacher" className="text-indigo-200 hover:text-white text-sm">← Dashboard</Link>
-          <span className="text-white/30">/</span>
-          <h1 className="font-bold">Post-Lesson Report</h1>
-        </div>
-      </header>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      <nav className="nav-glass" style={{ padding: '0 24px', height: '52px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Link href="/teacher" style={{ color: 'var(--accent)', fontSize: '15px', textDecoration: 'none' }}>Teacher</Link>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="var(--text-tertiary)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <span style={{ fontSize: '15px', color: 'var(--text-primary)', fontWeight: 500 }}>Post-Lesson Report</span>
+      </nav>
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
-        {!generated ? (
-          <div className="text-center py-20">
-            <div className="text-5xl mb-4">📊</div>
-            <h2 className="text-2xl font-bold text-slate-700 mb-2">Generate Lesson Report</h2>
-            <p className="text-slate-500 mb-6">The AI will analyse all student submissions and produce actionable insights.</p>
-            <button
-              onClick={generate}
-              disabled={loading}
-              className="bg-indigo-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2 mx-auto"
-            >
-              {loading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Analysing class data…
-                </>
-              ) : '✨ Generate Report'}
+      <main style={{ maxWidth: '680px', margin: '0 auto', padding: '48px 24px 80px' }}>
+        {!report ? (
+          <div className="animate-fade-up" style={{ textAlign: 'center', paddingTop: '40px' }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: 'var(--radius-xl)',
+              background: 'linear-gradient(135deg, rgba(0,113,227,0.1), rgba(191,90,242,0.1))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '32px', margin: '0 auto 24px'
+            }}>📊</div>
+            <h1 className="headline-md" style={{ marginBottom: '12px' }}>Generate lesson report</h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '17px', maxWidth: '380px', margin: '0 auto 32px', lineHeight: 1.5, letterSpacing: '-0.022em' }}>
+              Claude will analyse all student submissions and produce actionable insights.
+            </p>
+            <button className="btn-primary" onClick={generate} disabled={loading}>
+              {loading
+                ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+                    Analysing…
+                  </span>
+                : '✦ Generate report'}
             </button>
           </div>
-        ) : report ? (
-          <div className="space-y-5">
-            {/* Summary */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6">
-              <h2 className="font-bold text-slate-800 text-lg mb-4">{report.topic}</h2>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <div className="text-2xl font-bold text-indigo-600">{report.studentCount}</div>
-                  <div className="text-xs text-slate-500 mt-1">Students</div>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <div className="text-2xl font-bold text-emerald-600">{report.classMastery}%</div>
-                  <div className="text-xs text-slate-500 mt-1">Class mastery</div>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <div className="text-2xl font-bold text-slate-700">{report.duration}min</div>
-                  <div className="text-xs text-slate-500 mt-1">Duration</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Student clusters */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6">
-              <h3 className="font-bold text-slate-800 mb-4">Student Understanding</h3>
-              <div className="space-y-3">
+        ) : (
+          <div className="animate-fade-up" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Summary row */}
+            <div className="card" style={{ background: 'linear-gradient(135deg, rgba(0,113,227,0.06), rgba(191,90,242,0.04))' }}>
+              <h2 style={{ fontWeight: 700, fontSize: '22px', letterSpacing: '-0.025em', marginBottom: '4px', color: 'var(--text-primary)' }}>{report.topic}</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', marginTop: '20px' }}>
                 {[
-                  { label: 'Strong', names: report.clusters.strong, color: 'bg-emerald-100 text-emerald-800' },
-                  { label: 'Partial', names: report.clusters.partial, color: 'bg-amber-100 text-amber-800' },
-                  { label: 'Struggling', names: report.clusters.struggling, color: 'bg-red-100 text-red-800' }
-                ].map(({ label, names, color }) => (
-                  names.length > 0 && (
-                    <div key={label}>
-                      <div className="text-xs font-semibold text-slate-500 mb-1.5">{label} ({names.length})</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {names.map(name => (
-                          <span key={name} className={`px-2.5 py-1 rounded-full text-xs font-medium ${color}`}>{name}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )
+                  { label: 'Students', value: report.studentCount, color: 'var(--accent)' },
+                  { label: 'Class mastery', value: `${report.classMastery}%`, color: 'var(--green)' },
+                  { label: 'Duration', value: `${report.duration}m`, color: 'var(--purple)' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ textAlign: 'center', padding: '14px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '28px', fontWeight: 700, color, letterSpacing: '-0.04em' }}>{value}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px', letterSpacing: '-0.008em' }}>{label}</div>
+                  </div>
                 ))}
               </div>
             </div>
 
+            {/* Clusters */}
+            <div className="card">
+              <h3 style={{ fontWeight: 600, fontSize: '17px', letterSpacing: '-0.022em', marginBottom: '16px', color: 'var(--text-primary)' }}>Student understanding</h3>
+              {[
+                { label: 'Strong', names: report.clusters.strong, color: 'var(--green)', cls: 'badge-strong' },
+                { label: 'Partial', names: report.clusters.partial, color: 'var(--amber)', cls: 'badge-partial' },
+                { label: 'Struggling', names: report.clusters.struggling, color: 'var(--red)', cls: 'badge-struggling' },
+              ].filter(({ names }) => names.length > 0).map(({ label, names, cls }) => (
+                <div key={label} style={{ marginBottom: '14px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                    {label} ({names.length})
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {names.map(name => (
+                      <span key={name} className={cls} style={{ padding: '4px 12px', borderRadius: '980px', fontSize: '13px', fontWeight: 500 }}>{name}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {/* Insights */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6">
-              <h3 className="font-bold text-slate-800 mb-3">Key Insights</h3>
-              <ul className="space-y-2">
+            <div className="card">
+              <h3 style={{ fontWeight: 600, fontSize: '17px', letterSpacing: '-0.022em', marginBottom: '12px', color: 'var(--text-primary)' }}>Key insights</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {report.insights.map((insight, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-slate-600">
-                    <span className="text-indigo-400 mt-0.5">◎</span>
+                  <li key={i} style={{ display: 'flex', gap: '10px', fontSize: '15px', color: 'var(--text-secondary)', letterSpacing: '-0.016em', lineHeight: 1.5 }}>
+                    <span style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '3px' }}>◎</span>
                     {insight}
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* Knowledge gaps */}
-            <div className="bg-white rounded-2xl border border-amber-100 p-6">
-              <h3 className="font-bold text-slate-800 mb-3">Knowledge Gaps</h3>
-              <ul className="space-y-2">
+            {/* Gaps */}
+            <div className="card" style={{ borderColor: 'rgba(255,159,10,0.2)' }}>
+              <h3 style={{ fontWeight: 600, fontSize: '17px', letterSpacing: '-0.022em', marginBottom: '12px', color: 'var(--text-primary)' }}>Knowledge gaps</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {report.knowledgeGaps.map((gap, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-slate-600">
-                    <span className="text-amber-400 mt-0.5">⚑</span>
+                  <li key={i} style={{ display: 'flex', gap: '10px', fontSize: '15px', color: 'var(--text-secondary)', letterSpacing: '-0.016em', lineHeight: 1.5 }}>
+                    <span style={{ color: 'var(--amber)', flexShrink: 0, marginTop: '3px' }}>⚑</span>
                     {gap}
                   </li>
                 ))}
@@ -126,20 +115,21 @@ export default function ReviewPage() {
             </div>
 
             {/* Follow-up */}
-            <div className="bg-indigo-50 rounded-2xl border border-indigo-100 p-6">
-              <h3 className="font-bold text-slate-800 mb-3">Suggested Next Lessons</h3>
-              <ul className="space-y-2">
+            <div className="card" style={{ background: 'rgba(0,113,227,0.03)', borderColor: 'rgba(0,113,227,0.1)' }}>
+              <h3 style={{ fontWeight: 600, fontSize: '17px', letterSpacing: '-0.022em', marginBottom: '12px', color: 'var(--text-primary)' }}>Suggested next lessons</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {report.suggestedFollowUp.map((item, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-slate-600">
-                    <span className="text-indigo-400 mt-0.5">→</span>
+                  <li key={i} style={{ display: 'flex', gap: '10px', fontSize: '15px', color: 'var(--text-secondary)', letterSpacing: '-0.016em', lineHeight: 1.5 }}>
+                    <span style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '3px' }}>→</span>
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
           </div>
-        ) : null}
+        )}
       </main>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 }

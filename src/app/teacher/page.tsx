@@ -1,57 +1,38 @@
 'use client'
-import { useState } from 'react'
 import Link from 'next/link'
-import type { LessonPlan } from '@/lib/types'
 
 export default function TeacherDashboard() {
-  const [plans, setPlans] = useState<LessonPlan[]>([])
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-gradient-to-r from-indigo-700 to-purple-700 text-white px-6 py-4 flex items-center justify-between shadow-lg">
-        <div>
-          <h1 className="text-xl font-bold">Inquire.ai</h1>
-          <p className="text-indigo-200 text-xs">Teacher Dashboard</p>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      {/* Nav */}
+      <nav className="nav-glass" style={{ padding: '0 24px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontWeight: 700, fontSize: '17px', letterSpacing: '-0.022em', background: 'linear-gradient(135deg, #0071e3, #bf5af2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Inquire.ai</span>
+          <span style={{ color: 'var(--divider)', fontSize: '20px', fontWeight: 300 }}>/</span>
+          <span style={{ fontSize: '15px', color: 'var(--text-secondary)', letterSpacing: '-0.016em' }}>Teacher</span>
         </div>
-        <Link
-          href="/teacher/plan"
-          className="bg-white text-indigo-700 font-semibold px-4 py-2 rounded-xl text-sm hover:bg-indigo-50 transition-colors"
-        >
-          + New Lesson
+        <Link href="/teacher/plan" className="btn-primary" style={{ fontSize: '15px', padding: '8px 18px' }}>
+          New lesson
         </Link>
-      </header>
+      </nav>
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        {plans.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">🔬</div>
-            <h2 className="text-2xl font-bold text-slate-700 mb-2">No lessons yet</h2>
-            <p className="text-slate-500 mb-6">Use the AI planner to create your first IBL lesson in seconds.</p>
-            <Link
-              href="/teacher/plan"
-              className="inline-block bg-indigo-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-indigo-700 transition-colors"
-            >
-              Create your first lesson →
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {plans.map(plan => (
-              <div key={plan.id} className="bg-white rounded-xl border border-slate-200 p-5 flex items-center justify-between hover:border-indigo-200 transition-colors">
-                <div>
-                  <div className="font-semibold text-slate-800">{plan.topic}</div>
-                  <div className="text-sm text-slate-400">{plan.gradeLevel} · {plan.duration} min</div>
-                </div>
-                <Link
-                  href={`/teacher/plan?id=${plan.id}`}
-                  className="text-indigo-600 font-medium text-sm hover:text-indigo-700"
-                >
-                  Launch session →
-                </Link>
-              </div>
-            ))}
-          </div>
-        )}
+      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '64px 24px' }}>
+        {/* Empty state */}
+        <div className="animate-fade-up" style={{ textAlign: 'center', paddingTop: '40px' }}>
+          <div style={{
+            width: 80, height: 80, borderRadius: 'var(--radius-xl)',
+            background: 'linear-gradient(135deg, rgba(0,113,227,0.1), rgba(191,90,242,0.1))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '36px', margin: '0 auto 24px'
+          }}>🔬</div>
+          <h1 className="headline-md" style={{ marginBottom: '12px' }}>Welcome to Inquire.ai</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '17px', letterSpacing: '-0.022em', maxWidth: '400px', margin: '0 auto 32px', lineHeight: 1.5 }}>
+            Create your first AI-generated IBL lesson. The 5E framework, student tasks, and rubrics — all done in seconds.
+          </p>
+          <Link href="/teacher/plan" className="btn-primary">
+            Create your first lesson
+          </Link>
+        </div>
       </main>
     </div>
   )

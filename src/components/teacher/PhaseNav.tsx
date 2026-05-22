@@ -1,12 +1,12 @@
 'use client'
 import type { PhaseId } from '@/lib/types'
 
-const PHASES: { id: PhaseId; label: string; description: string }[] = [
-  { id: 'engage', label: 'Engage', description: 'Hook curiosity' },
-  { id: 'explore', label: 'Explore', description: 'Hands-on inquiry' },
-  { id: 'explain', label: 'Explain', description: 'Construct knowledge' },
-  { id: 'elaborate', label: 'Elaborate', description: 'Apply & extend' },
-  { id: 'evaluate', label: 'Evaluate', description: 'Reflect & assess' }
+const PHASES: { id: PhaseId; label: string }[] = [
+  { id: 'engage',    label: 'Engage' },
+  { id: 'explore',   label: 'Explore' },
+  { id: 'explain',   label: 'Explain' },
+  { id: 'elaborate', label: 'Elaborate' },
+  { id: 'evaluate',  label: 'Evaluate' },
 ]
 
 interface PhaseNavProps {
@@ -19,22 +19,37 @@ export default function PhaseNav({ currentPhase, onAdvance, disabled }: PhaseNav
   const currentIndex = PHASES.findIndex(p => p.id === currentPhase)
 
   return (
-    <div className="flex items-center gap-2">
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       {PHASES.map((phase, i) => (
-        <div key={phase.id} className="flex items-center gap-2">
-          <div className={`flex flex-col items-center gap-0.5 ${i <= currentIndex ? 'opacity-100' : 'opacity-40'}`}>
-            <div className={`
-              w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
-              ${i < currentIndex ? 'bg-indigo-600 text-white' : ''}
-              ${i === currentIndex ? 'bg-white ring-2 ring-indigo-600 text-indigo-600' : ''}
-              ${i > currentIndex ? 'bg-white/20 text-white/60' : ''}
-            `}>
+        <div key={phase.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            opacity: i <= currentIndex ? 1 : 0.35,
+            transition: 'opacity 0.3s'
+          }}>
+            <div style={{
+              width: 24, height: 24, borderRadius: '50%',
+              background: i < currentIndex
+                ? 'rgba(48,209,88,0.15)' : i === currentIndex
+                ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)',
+              border: i === currentIndex ? '1.5px solid rgba(255,255,255,0.7)' : '1.5px solid transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '11px', color: 'white', fontWeight: 600,
+              flexShrink: 0, transition: 'all 0.3s'
+            }}>
               {i < currentIndex ? '✓' : i + 1}
             </div>
-            <span className="text-xs font-medium text-white/80">{phase.label}</span>
+            <span style={{
+              fontSize: '13px', color: 'rgba(255,255,255,0.85)', fontWeight: i === currentIndex ? 600 : 400,
+              letterSpacing: '-0.008em'
+            }}>{phase.label}</span>
           </div>
           {i < PHASES.length - 1 && (
-            <div className={`w-6 h-0.5 ${i < currentIndex ? 'bg-indigo-400' : 'bg-white/20'}`} />
+            <div style={{
+              width: 20, height: 1,
+              background: i < currentIndex ? 'rgba(48,209,88,0.5)' : 'rgba(255,255,255,0.15)',
+              transition: 'background 0.3s'
+            }} />
           )}
         </div>
       ))}
@@ -43,9 +58,19 @@ export default function PhaseNav({ currentPhase, onAdvance, disabled }: PhaseNav
         <button
           onClick={onAdvance}
           disabled={disabled}
-          className="ml-4 px-4 py-2 bg-white text-indigo-700 font-semibold text-sm rounded-lg hover:bg-indigo-50 disabled:opacity-50 transition-colors"
-        >
-          Next: {PHASES[currentIndex + 1].label} →
+          style={{
+            marginLeft: '12px', padding: '6px 14px',
+            background: 'rgba(255,255,255,0.15)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            borderRadius: '980px',
+            color: 'white', fontSize: '13px', fontWeight: 500,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            opacity: disabled ? 0.4 : 1,
+            fontFamily: 'inherit', letterSpacing: '-0.008em',
+            transition: 'background 0.2s, opacity 0.2s'
+          }}>
+          {PHASES[currentIndex + 1].label} →
         </button>
       )}
     </div>

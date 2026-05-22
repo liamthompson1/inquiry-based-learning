@@ -5,6 +5,14 @@ import { useSocket } from '@/lib/socket/client'
 import HintOverlay from '@/components/student/HintOverlay'
 import type { Session, StudentState, Hint, PhaseId, LessonPhase } from '@/lib/types'
 
+const PHASE_GRADIENTS: Record<string, string> = {
+  engage:    'linear-gradient(135deg, #ff9f0a 0%, #ff6b35 100%)',
+  explore:   'linear-gradient(135deg, #30d158 0%, #0071e3 100%)',
+  explain:   'linear-gradient(135deg, #0071e3 0%, #2997ff 100%)',
+  elaborate: 'linear-gradient(135deg, #bf5af2 0%, #ff375f 100%)',
+  evaluate:  'linear-gradient(135deg, #ff453a 0%, #bf5af2 100%)',
+}
+
 export default function StudentMissionPage() {
   const { pin } = useParams<{ pin: string }>()
   const searchParams = useSearchParams()
@@ -12,7 +20,6 @@ export default function StudentMissionPage() {
   const { socket, connected } = useSocket()
 
   const [session, setSession] = useState<Session | null>(null)
-  const [student, setStudent] = useState<StudentState | null>(null)
   const [currentPhase, setCurrentPhase] = useState<LessonPhase | null>(null)
   const [answer, setAnswer] = useState('')
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
@@ -21,200 +28,193 @@ export default function StudentMissionPage() {
   const [error, setError] = useState('')
   const [paused, setPaused] = useState(false)
 
-  // Join session
   useEffect(() => {
     if (!socket || !pin) return
-
     socket.emit('student:join', { pin, name })
-
-    socket.on('session:joined', ({ session: s, student: st }: { session: Session; student: StudentState }) => {
+    socket.on('session:joined', ({ session: s }: { session: Session; student: StudentState }) => {
       setSession(s)
-      setStudent(st)
-      const phase = s.lesson.phases.find(p => p.name === s.phase)
-      setCurrentPhase(phase ?? null)
+      setCurrentPhase(s.lesson.phases.find(p => p.name === s.phase) ?? null)
     })
-
-    socket.on('error', ({ message }: { message: string }) => {
-      setError(message)
-    })
-
-    socket.on('hint:push', ({ hint }: { hint: Hint }) => {
-      setHints(prev => [...prev, hint])
-    })
-
+    socket.on('error', ({ message }: { message: string }) => setError(message))
+    socket.on('hint:push', ({ hint }: { hint: Hint }) => setHints(prev => [...prev, hint]))
     socket.on('phase:changed', ({ phase }: { phase: PhaseId }) => {
-      setSession(prev => prev ? { ...prev, phase } : prev)
-      if (session) {
-        const newPhase = session.lesson.phases.find(p => p.name === phase)
-        setCurrentPhase(newPhase ?? null)
-        setSubmitted(false)
-        setAnswer('')
-        setSelectedOption(null)
-      }
+      setSession(prev => {
+        if (!prev) return prev
+        const updated = { ...prev, phase }
+        setCurrentPhase(updated.lesson.phases.find(p => p.name === phase) ?? null)
+        return updated
+      })
+      setSubmitted(false); setAnswer(''); setSelectedOption(null)
     })
-
     socket.on('session:paused', () => setPaused(true))
     socket.on('session:resumed', () => setPaused(false))
-
     return () => {
-      socket.off('session:joined')
-      socket.off('error')
-      socket.off('hint:push')
-      socket.off('phase:changed')
-      socket.off('session:paused')
-      socket.off('session:resumed')
+      socket.off('session:joined'); socket.off('error'); socket.off('hint:push')
+      socket.off('phase:changed'); socket.off('session:paused'); socket.off('session:resumed')
     }
-  }, [socket, pin, name, session])
+  }, [socket, pin, name])
 
-  // Activity heartbeat
   useEffect(() => {
-    if (!socket || !student) return
-    const interval = setInterval(() => {
-      socket.emit('student:activity')
-    }, 30000)
+    if (!socket || !session) return
+    const interval = setInterval(() => socket.emit('student:activity'), 30000)
     return () => clearInterval(interval)
-  }, [socket, student])
+  }, [socket, session])
 
   const handleSubmit = useCallback(() => {
     if (!socket || !currentPhase) return
-    const content = currentPhase.studentTask.inputType === 'multiple_choice'
-      ? selectedOption ?? ''
-      : answer
+    const content = currentPhase.studentTask.inputType === 'multiple_choice' ? selectedOption ?? '' : answer
     if (!content.trim()) return
-
-    socket.emit('student:submit', {
-      taskId: currentPhase.studentTask.id,
-      type: currentPhase.studentTask.inputType,
-      content
-    })
+    socket.emit('student:submit', { taskId: currentPhase.studentTask.id, type: currentPhase.studentTask.inputType, content })
     setSubmitted(true)
   }, [socket, currentPhase, answer, selectedOption])
 
   if (error) return (
-    <div className="min-h-screen bg-gradient-to-br from-red-400 to-pink-500 flex items-center justify-center p-6">
-      <div className="bg-white rounded-3xl p-8 text-center max-w-sm">
-        <div className="text-5xl mb-4">❌</div>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Can&apos;t join class</h2>
-        <p className="text-slate-500">{error}</p>
-        <a href="/student" className="mt-4 inline-block text-indigo-600 font-medium">Try again</a>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <div className="card" style={{ maxWidth: '360px', width: '100%', textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>✕</div>
+        <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.025em', marginBottom: '8px' }}>Can&apos;t join class</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>{error}</p>
+        <a href="/student" className="btn-primary" style={{ display: 'inline-flex' }}>Try again</a>
       </div>
     </div>
   )
 
   if (!session || !currentPhase) return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-6">
-      <div className="text-center text-white">
-        <div className="w-12 h-12 border-3 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" style={{ borderWidth: '3px' }} />
-        <p className="font-medium">{session ? 'Loading your mission…' : 'Joining class…'}</p>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid var(--divider)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+        <p style={{ color: 'var(--text-secondary)', fontSize: '17px', letterSpacing: '-0.022em' }}>
+          {session ? 'Loading your mission…' : 'Joining class…'}
+        </p>
       </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 
   if (paused) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center p-6">
-      <div className="text-center text-white">
-        <div className="text-5xl mb-4">⏸️</div>
-        <h2 className="text-2xl font-bold mb-2">Class paused</h2>
-        <p className="text-white/60">Your teacher has paused the session. Please wait.</p>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '56px', marginBottom: '16px' }}>⏸</div>
+        <h2 style={{ fontSize: '28px', fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text-primary)', marginBottom: '8px' }}>Class paused</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '17px', letterSpacing: '-0.022em' }}>Your teacher has paused the session.</p>
       </div>
     </div>
   )
 
   const task = currentPhase.studentTask
+  const phaseGradient = PHASE_GRADIENTS[session.phase] || PHASE_GRADIENTS.engage
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-white flex flex-col">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-3 safe-area-inset-top">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-bold">{session.lesson.topic}</div>
-            <div className="text-indigo-200 text-xs capitalize">{session.phase} phase</div>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
+      {/* Header bar */}
+      <header style={{
+        background: phaseGradient, padding: '14px 20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        boxShadow: '0 1px 0 rgba(0,0,0,0.1)'
+      }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: '15px', color: 'white', letterSpacing: '-0.016em' }}>{session.lesson.topic}</div>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', textTransform: 'capitalize', marginTop: '1px' }}>{session.phase} phase</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontWeight: 600, fontSize: '15px', color: 'white', letterSpacing: '-0.016em' }}>{name}</div>
+            <div style={{ fontSize: '11px', color: connected ? 'rgba(255,255,255,0.8)' : 'rgba(255,100,100,0.9)' }}>{connected ? '● Live' : '○ Reconnecting'}</div>
           </div>
-          <div className="text-right">
-            <div className="text-sm font-medium">{name}</div>
-            <div className={`text-xs ${connected ? 'text-emerald-300' : 'text-red-300'}`}>
-              {connected ? '● Connected' : '○ Reconnecting'}
-            </div>
-          </div>
+          {hints.length > 0 && (
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(10px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '14px'
+            }}>💡</div>
+          )}
         </div>
       </header>
 
-      {/* Mission card */}
-      <main className="flex-1 p-5 flex flex-col gap-4 max-w-lg mx-auto w-full">
-        {/* Phase label */}
-        <div className="flex items-center gap-2">
-          <div className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wide">
-            {session.phase}
-          </div>
-          <div className="text-slate-400 text-xs">{currentPhase.duration} min</div>
+      {/* Content */}
+      <main style={{ flex: 1, padding: '24px 20px', maxWidth: '600px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Phase pill */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{
+            padding: '4px 14px', borderRadius: '980px', fontSize: '12px', fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.05em',
+            background: phaseGradient, color: 'white',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+          }}>{session.phase}</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{currentPhase.duration} min</span>
         </div>
 
-        {/* Instructions */}
-        <div className="bg-white rounded-3xl shadow-md p-6 border border-indigo-100">
-          <p className="text-slate-800 text-lg leading-relaxed font-medium">{task.instructions}</p>
+        {/* Instructions card */}
+        <div className="card glass-strong" style={{ borderRadius: 'var(--radius-xl)' }}>
+          <p style={{ fontSize: '20px', color: 'var(--text-primary)', lineHeight: 1.5, letterSpacing: '-0.025em', fontWeight: 500 }}>
+            {task.instructions}
+          </p>
         </div>
 
         {/* Input */}
         {!submitted ? (
-          <div className="bg-white rounded-3xl shadow-md p-5 border border-slate-100">
+          <div>
             {task.inputType === 'multiple_choice' && task.options ? (
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {task.options.map(option => (
-                  <button
-                    key={option}
-                    onClick={() => setSelectedOption(option)}
-                    className={`w-full text-left px-5 py-4 rounded-2xl border-2 text-base font-medium transition-all ${
-                      selectedOption === option
-                        ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
-                        : 'border-slate-200 text-slate-700 hover:border-indigo-200 hover:bg-slate-50'
-                    }`}
-                  >
+                  <button key={option} onClick={() => setSelectedOption(option)} style={{
+                    width: '100%', textAlign: 'left', padding: '18px 20px',
+                    borderRadius: 'var(--radius-lg)',
+                    border: `2px solid ${selectedOption === option ? 'var(--accent)' : 'var(--divider)'}`,
+                    background: selectedOption === option ? 'rgba(0,113,227,0.06)' : 'var(--surface-raised)',
+                    color: 'var(--text-primary)', fontSize: '17px', fontFamily: 'inherit',
+                    letterSpacing: '-0.022em', cursor: 'pointer',
+                    transition: 'border-color 0.2s, background 0.2s',
+                    outline: 'none'
+                  }}>
                     {option}
                   </button>
                 ))}
               </div>
             ) : (
-              <textarea
-                value={answer}
-                onChange={e => {
-                  setAnswer(e.target.value)
-                  socket?.emit('student:activity')
-                }}
-                placeholder="Write your answer here…"
-                rows={5}
-                className="w-full text-slate-800 text-base leading-relaxed resize-none focus:outline-none placeholder:text-slate-300"
-              />
+              <div className="card glass-strong" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                <textarea
+                  value={answer}
+                  onChange={e => { setAnswer(e.target.value); socket?.emit('student:activity') }}
+                  placeholder="Write your answer here…"
+                  rows={6}
+                  style={{
+                    width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                    fontSize: '19px', color: 'var(--text-primary)', fontFamily: 'inherit',
+                    letterSpacing: '-0.022em', lineHeight: 1.55, resize: 'none'
+                  }}
+                />
+              </div>
             )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={task.inputType === 'multiple_choice' ? !selectedOption : !answer.trim()}
+              className="btn-primary"
+              style={{
+                width: '100%', marginTop: '16px', fontSize: '19px', padding: '18px',
+                borderRadius: 'var(--radius-lg)', justifyContent: 'center',
+                boxShadow: '0 4px 20px rgba(0,113,227,0.3)'
+              }}
+            >
+              Submit answer
+            </button>
           </div>
         ) : (
-          <div className="bg-emerald-50 rounded-3xl border border-emerald-200 p-6 text-center">
-            <div className="text-3xl mb-2">✅</div>
-            <p className="font-bold text-emerald-800">Submitted!</p>
-            <p className="text-emerald-600 text-sm mt-1">Your teacher can see your answer. Wait for the next phase.</p>
-          </div>
-        )}
-
-        {/* Submit button */}
-        {!submitted && (
-          <button
-            onClick={handleSubmit}
-            disabled={task.inputType === 'multiple_choice' ? !selectedOption : !answer.trim()}
-            className="w-full bg-indigo-600 text-white font-bold text-lg py-5 rounded-2xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-lg shadow-indigo-200"
-          >
-            Submit my answer →
-          </button>
-        )}
-
-        {/* Hint count */}
-        {hints.length > 0 && (
-          <div className="text-center text-indigo-400 text-sm">
-            💡 You have {hints.length} hint{hints.length !== 1 ? 's' : ''} — scroll up to see
+          <div className="card" style={{
+            borderRadius: 'var(--radius-xl)', textAlign: 'center', padding: '32px 24px',
+            background: 'rgba(48,209,88,0.06)', border: '1px solid rgba(48,209,88,0.2)'
+          }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>✓</div>
+            <p style={{ fontWeight: 700, fontSize: '20px', color: 'var(--green)', letterSpacing: '-0.025em', marginBottom: '6px' }}>Submitted!</p>
+            <p style={{ fontSize: '15px', color: 'var(--text-secondary)', letterSpacing: '-0.016em' }}>Your teacher can see your answer. Wait for the next phase.</p>
           </div>
         )}
       </main>
 
       <HintOverlay hints={hints} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 }

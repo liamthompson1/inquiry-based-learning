@@ -6,60 +6,81 @@ export default function JoinPage() {
   const router = useRouter()
   const [pin, setPin] = useState('')
   const [name, setName] = useState('')
-  const [error, setError] = useState('')
 
   function handleJoin() {
     if (pin.length !== 6 || !name.trim()) return
     router.push(`/student/${pin}?name=${encodeURIComponent(name.trim())}`)
   }
 
+  const ready = pin.length === 6 && name.trim().length > 0
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-3">🎒</div>
-          <h1 className="text-3xl font-bold text-white">Join your class</h1>
-          <p className="text-white/70 mt-1">Enter your class PIN to start</p>
+    <div style={{
+      minHeight: '100vh', background: 'var(--bg-primary)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '24px', position: 'relative', overflow: 'hidden'
+    }}>
+      {/* Ambient */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', top: '-20%', left: '-10%', width: '60%', height: '60%', background: 'radial-gradient(ellipse, rgba(191,90,242,0.12) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+        <div style={{ position: 'absolute', bottom: '-10%', right: '-5%', width: '50%', height: '50%', background: 'radial-gradient(ellipse, rgba(0,113,227,0.1) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+      </div>
+
+      <div className="animate-slide-up" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '400px' }}>
+        {/* Icon */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: 'var(--radius-xl)',
+            background: 'linear-gradient(135deg, #bf5af2, #ff375f)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '32px', margin: '0 auto 16px',
+            boxShadow: '0 8px 32px rgba(191,90,242,0.3)'
+          }}>🎒</div>
+          <h1 style={{ fontSize: '28px', fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text-primary)', marginBottom: '8px' }}>Join your class</h1>
+          <p style={{ fontSize: '17px', color: 'var(--text-secondary)', letterSpacing: '-0.022em' }}>Enter your name and class PIN</p>
         </div>
 
-        <div className="bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2">Your name</label>
+        {/* Form card */}
+        <div className="glass-strong card" style={{ borderRadius: 'var(--radius-xl)' }}>
+          <div style={{ marginBottom: '20px' }}>
+            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>Your name</label>
             <input
+              className="input"
               type="text"
               placeholder="e.g. Alex"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full text-lg border-2 border-slate-200 focus:border-indigo-400 rounded-2xl px-4 py-3 focus:outline-none transition-colors"
+              onKeyDown={e => e.key === 'Enter' && handleJoin()}
               autoFocus
+              style={{ fontSize: '19px', padding: '14px 18px', borderRadius: 'var(--radius-md)' }}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2">Class PIN</label>
+          <div style={{ marginBottom: '28px' }}>
+            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>Class PIN</label>
             <input
+              className="input"
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              placeholder="6-digit PIN"
+              placeholder="000000"
               value={pin}
-              onChange={e => {
-                const val = e.target.value.replace(/\D/g, '').slice(0, 6)
-                setPin(val)
-                setError('')
+              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onKeyDown={e => e.key === 'Enter' && handleJoin()}
+              style={{
+                fontSize: '32px', fontFamily: 'monospace', letterSpacing: '0.2em',
+                textAlign: 'center', padding: '16px', borderRadius: 'var(--radius-md)'
               }}
-              className="w-full text-3xl font-mono tracking-widest text-center border-2 border-slate-200 focus:border-indigo-400 rounded-2xl px-4 py-4 focus:outline-none transition-colors"
             />
           </div>
 
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-
           <button
             onClick={handleJoin}
-            disabled={pin.length !== 6 || !name.trim()}
-            className="w-full bg-indigo-600 text-white font-bold text-lg py-4 rounded-2xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+            disabled={!ready}
+            className="btn-primary"
+            style={{ width: '100%', fontSize: '19px', padding: '16px', borderRadius: 'var(--radius-lg)', justifyContent: 'center' }}
           >
-            Join class →
+            Join class
           </button>
         </div>
       </div>

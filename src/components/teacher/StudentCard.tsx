@@ -12,57 +12,92 @@ export default function StudentCard({ student, onPushHint, onWalkOver }: Student
   const latest = student.submissions.at(-1)
   const evaluation = latest?.aiEvaluation
   const highFlags = student.flags.filter(f => f.severity === 'high')
-  const isInactive = !student.isActive
 
   return (
-    <div className={`
-      relative bg-white rounded-xl border p-4 flex flex-col gap-2 transition-all
-      ${highFlags.length > 0 ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-200'}
-      ${isInactive ? 'opacity-50' : ''}
-    `}>
+    <div style={{
+      position: 'relative',
+      background: 'var(--surface-raised)',
+      border: `1px solid ${highFlags.length > 0 ? 'rgba(255,69,58,0.4)' : 'var(--divider)'}`,
+      borderRadius: 'var(--radius-lg)',
+      padding: '16px',
+      display: 'flex', flexDirection: 'column', gap: '10px',
+      transition: 'box-shadow 0.3s, transform 0.3s',
+      boxShadow: highFlags.length > 0 ? '0 0 0 3px rgba(255,69,58,0.12)' : 'none',
+      opacity: student.isActive ? 1 : 0.45
+    }}>
       {highFlags.length > 0 && (
-        <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+        <span style={{
+          position: 'absolute', top: -4, right: -4,
+          width: 10, height: 10, borderRadius: '50%',
+          background: 'var(--red)', boxShadow: '0 0 0 2px var(--bg-primary)',
+          animation: 'pulse 2s ease-in-out infinite'
+        }} />
       )}
 
-      <div className="flex items-center justify-between">
-        <span className="font-semibold text-slate-800 text-sm truncate">{student.name}</span>
-        <span className="text-xs text-slate-400 capitalize">{student.phase}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)', letterSpacing: '-0.016em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {student.name}
+        </span>
+        <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'capitalize', letterSpacing: '-0.008em', flexShrink: 0, marginLeft: '8px' }}>
+          {student.phase}
+        </span>
       </div>
 
-      {evaluation ? (
-        <UnderstandingBadge understanding={evaluation.understanding} score={evaluation.score} />
-      ) : (
-        <span className="text-xs text-slate-400 italic">
-          {student.submissions.length === 0 ? 'Not started' : 'Evaluating…'}
-        </span>
-      )}
+      {evaluation
+        ? <UnderstandingBadge understanding={evaluation.understanding} score={evaluation.score} />
+        : <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+            {student.submissions.length === 0 ? 'Not started' : 'Evaluating…'}
+          </span>
+      }
 
-      {latest && (
-        <p className="text-xs text-slate-500 line-clamp-2 bg-slate-50 rounded p-2">
-          {latest.content || <em>No text</em>}
+      {latest?.content && (
+        <p style={{
+          fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4,
+          overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)',
+          padding: '8px 10px', letterSpacing: '-0.008em'
+        }}>
+          {latest.content}
         </p>
       )}
 
       {student.flags.length > 0 && (
-        <div className="text-xs text-amber-700 bg-amber-50 rounded p-1.5 truncate">
+        <div style={{
+          fontSize: '12px', color: 'var(--amber)', background: 'rgba(255,159,10,0.08)',
+          border: '1px solid rgba(255,159,10,0.2)', borderRadius: 'var(--radius-sm)',
+          padding: '6px 10px', letterSpacing: '-0.008em',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+        }}>
           ⚑ {student.flags.at(-1)?.message}
         </div>
       )}
 
-      <div className="flex gap-1.5 pt-1">
+      <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
         <button
           onClick={() => onPushHint(student.socketId)}
-          className="flex-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg py-1.5 transition-colors"
-        >
+          style={{
+            flex: 1, fontSize: '13px', padding: '7px',
+            background: 'rgba(0,113,227,0.08)', color: 'var(--accent)',
+            border: '1px solid rgba(0,113,227,0.15)', borderRadius: 'var(--radius-md)',
+            cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '-0.008em',
+            transition: 'background 0.2s', fontWeight: 500
+          }}>
           Send hint
         </button>
         <button
           onClick={() => onWalkOver(student)}
-          className="flex-1 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg py-1.5 transition-colors"
-        >
+          style={{
+            flex: 1, fontSize: '13px', padding: '7px',
+            background: 'var(--bg-secondary)', color: 'var(--text-secondary)',
+            border: '1px solid var(--divider)', borderRadius: 'var(--radius-md)',
+            cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '-0.008em',
+            transition: 'background 0.2s'
+          }}>
           Walk over
         </button>
       </div>
+
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
     </div>
   )
 }
