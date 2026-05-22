@@ -1,9 +1,9 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { useSocket } from '@/lib/socket/client'
+import { getSupabaseBrowser } from '@/lib/supabase/client'
 import HintOverlay from '@/components/student/HintOverlay'
-import type { Session, StudentState, Hint, PhaseId, LessonPhase } from '@/lib/types'
+import type { Session, LessonPhase } from '@/lib/types'
 
 const PHASE_GRADIENTS: Record<string, string> = {
   engage:    'linear-gradient(135deg, #ff9f0a 0%, #ff6b35 100%)',
@@ -17,63 +17,83 @@ export default function StudentMissionPage() {
   const { pin } = useParams<{ pin: string }>()
   const searchParams = useSearchParams()
   const name = searchParams.get('name') || 'Student'
-  const { socket, connected } = useSocket()
 
   const [session, setSession] = useState<Session | null>(null)
-  const [currentPhase, setCurrentPhase] = useState<LessonPhase | null>(null)
+  const [studentId, setStudentId] = useState<string | null>(null)
+  const [joinError, setJoinError] = useState('')
+  const [connected, setConnected] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
   const [answer, setAnswer] = useState('')
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState(false)
-  const [hints, setHints] = useState<Hint[]>([])
-  const [error, setError] = useState('')
-  const [paused, setPaused] = useState(false)
 
+  // Join session
   useEffect(() => {
-    if (!socket || !pin) return
-    socket.emit('student:join', { pin, name })
-    socket.on('session:joined', ({ session: s }: { session: Session; student: StudentState }) => {
-      setSession(s)
-      setCurrentPhase(s.lesson.phases.find(p => p.name === s.phase) ?? null)
+    fetch('/api/sessions/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, name })
     })
-    socket.on('error', ({ message }: { message: string }) => setError(message))
-    socket.on('hint:push', ({ hint }: { hint: Hint }) => setHints(prev => [...prev, hint]))
-    socket.on('phase:changed', ({ phase }: { phase: PhaseId }) => {
-      setSession(prev => {
-        if (!prev) return prev
-        const updated = { ...prev, phase }
-        setCurrentPhase(updated.lesson.phases.find(p => p.name === phase) ?? null)
-        return updated
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setJoinError(d.error); return }
+        setSession(d.session)
+        setStudentId(d.studentId)
       })
-      setSubmitted(false); setAnswer(''); setSelectedOption(null)
-    })
-    socket.on('session:paused', () => setPaused(true))
-    socket.on('session:resumed', () => setPaused(false))
-    return () => {
-      socket.off('session:joined'); socket.off('error'); socket.off('hint:push')
-      socket.off('phase:changed'); socket.off('session:paused'); socket.off('session:resumed')
-    }
-  }, [socket, pin, name])
+      .catch(() => setJoinError('Network error. Please try again.'))
+  }, [pin, name])
 
+  // Subscribe to Realtime once we have a session ID
   useEffect(() => {
-    if (!socket || !session) return
-    const interval = setInterval(() => socket.emit('student:activity'), 30000)
-    return () => clearInterval(interval)
-  }, [socket, session])
+    if (!session?.id) return
+    const sessionId = session.id
+    const supabase = getSupabaseBrowser()
+    const channel = supabase
+      .channel(`classroom-student-${sessionId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` },
+        (payload) => {
+          const s = (payload.new as { data: Session }).data
+          if (s) setSession(s)
+        }
+      )
+      .subscribe((status) => setConnected(status === 'SUBSCRIBED'))
 
-  const handleSubmit = useCallback(() => {
-    if (!socket || !currentPhase) return
-    const content = currentPhase.studentTask.inputType === 'multiple_choice' ? selectedOption ?? '' : answer
+    return () => { supabase.removeChannel(channel) }
+  }, [session?.id])
+
+  // Reset state when phase changes
+  useEffect(() => {
+    setSubmitted(false)
+    setAnswer('')
+    setSelectedOption(null)
+  }, [session?.phase])
+
+  const myStudent = studentId ? session?.students.find(s => s.id === studentId) : null
+  const hints = myStudent?.hints ?? []
+  const currentPhase: LessonPhase | null = session?.lesson.phases.find(p => p.name === session.phase) ?? null
+
+  const handleSubmit = useCallback(async () => {
+    if (!session || !currentPhase || !studentId) return
+    const content = currentPhase.studentTask.inputType === 'multiple_choice'
+      ? selectedOption ?? ''
+      : answer
     if (!content.trim()) return
-    socket.emit('student:submit', { taskId: currentPhase.studentTask.id, type: currentPhase.studentTask.inputType, content })
-    setSubmitted(true)
-  }, [socket, currentPhase, answer, selectedOption])
 
-  if (error) return (
+    setSubmitted(true)
+    fetch(`/api/sessions/${session.id}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId, taskId: currentPhase.studentTask.id, type: currentPhase.studentTask.inputType, content })
+    }).catch(console.error)
+  }, [session, currentPhase, studentId, answer, selectedOption])
+
+  if (joinError) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div className="card" style={{ maxWidth: '360px', width: '100%', textAlign: 'center' }}>
         <div style={{ fontSize: '48px', marginBottom: '16px' }}>✕</div>
         <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.025em', marginBottom: '8px' }}>Can&apos;t join class</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>{error}</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>{joinError}</p>
         <a href="/student" className="btn-primary" style={{ display: 'inline-flex' }}>Try again</a>
       </div>
     </div>
@@ -83,15 +103,13 @@ export default function StudentMissionPage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 40, height: 40, border: '3px solid var(--divider)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-        <p style={{ color: 'var(--text-secondary)', fontSize: '17px', letterSpacing: '-0.022em' }}>
-          {session ? 'Loading your mission…' : 'Joining class…'}
-        </p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '17px', letterSpacing: '-0.022em' }}>Joining class…</p>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 
-  if (paused) return (
+  if (session.status === 'paused') return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: '56px', marginBottom: '16px' }}>⏸</div>
@@ -106,7 +124,6 @@ export default function StudentMissionPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
-      {/* Header bar */}
       <header style={{
         background: phaseGradient, padding: '14px 20px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -119,40 +136,36 @@ export default function StudentMissionPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontWeight: 600, fontSize: '15px', color: 'white', letterSpacing: '-0.016em' }}>{name}</div>
-            <div style={{ fontSize: '11px', color: connected ? 'rgba(255,255,255,0.8)' : 'rgba(255,100,100,0.9)' }}>{connected ? '● Live' : '○ Reconnecting'}</div>
+            <div style={{ fontSize: '11px', color: connected ? 'rgba(255,255,255,0.8)' : 'rgba(255,100,100,0.9)' }}>
+              {connected ? '● Live' : '○ Connecting'}
+            </div>
           </div>
           {hints.length > 0 && (
             <div style={{
               width: 28, height: 28, borderRadius: '50%',
               background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(10px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '14px'
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px'
             }}>💡</div>
           )}
         </div>
       </header>
 
-      {/* Content */}
       <main style={{ flex: 1, padding: '24px 20px', maxWidth: '600px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* Phase pill */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <span style={{
             padding: '4px 14px', borderRadius: '980px', fontSize: '12px', fontWeight: 700,
             textTransform: 'uppercase', letterSpacing: '0.05em',
-            background: phaseGradient, color: 'white',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            background: phaseGradient, color: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
           }}>{session.phase}</span>
           <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{currentPhase.duration} min</span>
         </div>
 
-        {/* Instructions card */}
         <div className="card glass-strong" style={{ borderRadius: 'var(--radius-xl)' }}>
           <p style={{ fontSize: '20px', color: 'var(--text-primary)', lineHeight: 1.5, letterSpacing: '-0.025em', fontWeight: 500 }}>
             {task.instructions}
           </p>
         </div>
 
-        {/* Input */}
         {!submitted ? (
           <div>
             {task.inputType === 'multiple_choice' && task.options ? (
@@ -165,8 +178,7 @@ export default function StudentMissionPage() {
                     background: selectedOption === option ? 'rgba(0,113,227,0.06)' : 'var(--surface-raised)',
                     color: 'var(--text-primary)', fontSize: '17px', fontFamily: 'inherit',
                     letterSpacing: '-0.022em', cursor: 'pointer',
-                    transition: 'border-color 0.2s, background 0.2s',
-                    outline: 'none'
+                    transition: 'border-color 0.2s, background 0.2s', outline: 'none'
                   }}>
                     {option}
                   </button>
@@ -176,7 +188,7 @@ export default function StudentMissionPage() {
               <div className="card glass-strong" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                 <textarea
                   value={answer}
-                  onChange={e => { setAnswer(e.target.value); socket?.emit('student:activity') }}
+                  onChange={e => setAnswer(e.target.value)}
                   placeholder="Write your answer here…"
                   rows={6}
                   style={{

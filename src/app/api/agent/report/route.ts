@@ -7,7 +7,7 @@ import { getSession } from '@/lib/session-store'
 export async function POST(request: NextRequest) {
   try {
     const { sessionId } = await request.json()
-    const session = getSession(sessionId)
+    const session = await getSession(sessionId)
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }

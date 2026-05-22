@@ -1,32 +1,37 @@
+import { getSupabaseServer } from './supabase/server'
 import type { Session } from './types'
 
-declare global {
-  // eslint-disable-next-line no-var
-  var _sessions: Map<string, Session> | undefined
+export async function getSession(id: string): Promise<Session | undefined> {
+  const { data } = await getSupabaseServer()
+    .from('sessions')
+    .select('data')
+    .eq('id', id)
+    .maybeSingle()
+  return data?.data as Session | undefined
 }
 
-export function getSessionStore(): Map<string, Session> {
-  if (!global._sessions) {
-    global._sessions = new Map()
-  }
-  return global._sessions
+export async function setSession(session: Session): Promise<void> {
+  await getSupabaseServer()
+    .from('sessions')
+    .upsert({ id: session.id, pin: session.pin, status: session.status, data: session })
 }
 
-export function getSession(id: string): Session | undefined {
-  return getSessionStore().get(id)
+export async function findSessionByPin(pin: string): Promise<Session | undefined> {
+  const { data } = await getSupabaseServer()
+    .from('sessions')
+    .select('data')
+    .eq('pin', pin)
+    .in('status', ['waiting', 'active'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data?.data as Session | undefined
 }
 
-export function setSession(session: Session): void {
-  getSessionStore().set(session.id, session)
-}
-
-export function findSessionByPin(pin: string): Session | undefined {
-  for (const session of getSessionStore().values()) {
-    if (session.pin === pin && session.status === 'active') return session
-  }
-  return undefined
-}
-
-export function listSessions(): Session[] {
-  return Array.from(getSessionStore().values())
+export async function listSessions(): Promise<Session[]> {
+  const { data } = await getSupabaseServer()
+    .from('sessions')
+    .select('data')
+    .order('created_at', { ascending: false })
+  return (data ?? []).map(r => r.data as Session)
 }

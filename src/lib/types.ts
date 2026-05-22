@@ -64,7 +64,7 @@ export interface Hint {
 }
 
 export interface StudentState {
-  socketId: string
+  id: string
   name: string
   phase: PhaseId
   submissions: Submission[]

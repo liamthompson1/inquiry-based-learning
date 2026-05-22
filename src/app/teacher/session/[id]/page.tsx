@@ -1,77 +1,49 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { useSocket } from '@/lib/socket/client'
+import { useClassroomSession } from '@/lib/realtime/classroom'
 import StudentCard from '@/components/teacher/StudentCard'
 import PhaseNav from '@/components/teacher/PhaseNav'
-import type { Session, StudentState, Flag, PhaseId } from '@/lib/types'
+import type { Flag, StudentState } from '@/lib/types'
 import { clusterStudents } from '@/lib/pulse-utils'
 import Link from 'next/link'
 
 export default function PulseDashboard() {
   const { id } = useParams<{ id: string }>()
-  const { socket, connected } = useSocket()
-  const [session, setSession] = useState<Session | null>(null)
-  const [flagLog, setFlagLog] = useState<Array<{ student: StudentState; flag: Flag }>>([])
-  const [hintModal, setHintModal] = useState<{ socketId: string; name: string } | null>(null)
+  const { session, connected } = useClassroomSession(id)
+  const [hintModal, setHintModal] = useState<{ id: string; name: string } | null>(null)
   const [hintText, setHintText] = useState('')
+  const [hintLoading, setHintLoading] = useState(false)
 
-  useEffect(() => {
-    fetch(`/api/sessions/${id}`).then(r => r.json()).then(({ session }) => setSession(session))
+  const handleAdvancePhase = useCallback(async () => {
+    await fetch(`/api/sessions/${id}/phase`, { method: 'POST' })
   }, [id])
 
-  useEffect(() => {
-    if (!socket || !id) return
-    socket.emit('teacher:join', { sessionId: id })
-    socket.on('session:state', (s: Session) => setSession(s))
-    socket.on('student:connected', ({ student }: { student: StudentState }) => {
-      setSession(prev => prev ? { ...prev, students: [...prev.students, student] } : prev)
-    })
-    socket.on('student:disconnected', ({ socketId }: { socketId: string }) => {
-      setSession(prev => prev ? { ...prev, students: prev.students.filter(s => s.socketId !== socketId) } : prev)
-    })
-    socket.on('pulse:update', ({ student }: { student: StudentState }) => {
-      setSession(prev => {
-        if (!prev) return prev
-        return { ...prev, students: prev.students.map(s => s.socketId === student.socketId ? student : s) }
-      })
-    })
-    socket.on('student:flagged', ({ student, flag }: { student: StudentState; flag: Flag }) => {
-      setFlagLog(prev => [{ student, flag }, ...prev].slice(0, 20))
-      setSession(prev => {
-        if (!prev) return prev
-        return { ...prev, students: prev.students.map(s => s.socketId === student.socketId ? student : s) }
-      })
-    })
-    socket.on('phase:changed', ({ phase }: { phase: PhaseId }) => {
-      setSession(prev => prev ? { ...prev, phase } : prev)
-    })
-    return () => {
-      socket.off('session:state'); socket.off('student:connected'); socket.off('student:disconnected')
-      socket.off('pulse:update'); socket.off('student:flagged'); socket.off('phase:changed')
-    }
-  }, [socket, id])
-
-  const handleAdvancePhase = useCallback(() => {
-    socket?.emit('teacher:advance_phase', { sessionId: id })
-  }, [socket, id])
-
-  const handleSendHint = useCallback((socketId: string) => {
-    const student = session?.students.find(s => s.socketId === socketId)
+  const handleSendHint = useCallback((studentId: string) => {
+    const student = session?.students.find(s => s.id === studentId)
     if (!student) return
-    setHintModal({ socketId, name: student.name })
+    setHintModal({ id: studentId, name: student.name })
     setHintText('')
   }, [session])
 
-  const handleSubmitHint = useCallback(() => {
+  const handleSubmitHint = useCallback(async () => {
     if (!hintModal || !hintText.trim()) return
-    socket?.emit('teacher:push_hint', { sessionId: id, studentSocketId: hintModal.socketId, hint: { content: hintText, from: 'teacher', timestamp: new Date().toISOString() } })
+    setHintLoading(true)
+    await fetch(`/api/sessions/${id}/hint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId: hintModal.id, hint: hintText })
+    })
     setHintModal(null)
-  }, [socket, id, hintModal, hintText])
+    setHintLoading(false)
+  }, [id, hintModal, hintText])
 
   const handleActivate = useCallback(async () => {
-    await fetch(`/api/sessions/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'active' }) })
-    setSession(prev => prev ? { ...prev, status: 'active' } : prev)
+    await fetch(`/api/sessions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'active' })
+    })
   }, [id])
 
   if (!session) return (
@@ -84,10 +56,16 @@ export default function PulseDashboard() {
   const clusters = clusterStudents(session.students)
   const currentPhase = session.lesson.phases.find(p => p.name === session.phase)
 
+  // Derive flag log from session state, newest first
+  const flagLog: Array<{ student: StudentState; flag: Flag }> = session.students
+    .flatMap(s => s.flags.map(f => ({ student: s, flag: f })))
+    .sort((a, b) => b.flag.timestamp.localeCompare(a.flag.timestamp))
+    .slice(0, 20)
+
   const summaryItems = [
-    { label: 'Strong', count: clusters.strong.length, color: 'var(--green)' },
-    { label: 'Partial', count: clusters.partial.length, color: 'var(--amber)' },
-    { label: 'Struggling', count: clusters.struggling.length, color: 'var(--red)' },
+    { label: 'Strong',      count: clusters.strong.length,     color: 'var(--green)' },
+    { label: 'Partial',     count: clusters.partial.length,    color: 'var(--amber)' },
+    { label: 'Struggling',  count: clusters.struggling.length, color: 'var(--red)' },
     { label: 'Not started', count: clusters.notStarted.length, color: 'rgba(255,255,255,0.3)' },
   ]
 
@@ -113,7 +91,7 @@ export default function PulseDashboard() {
               <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: connected ? 'var(--green)' : 'var(--red)' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? 'var(--green)' : 'var(--red)', flexShrink: 0 }} />
-                {connected ? 'Live' : 'Disconnected'}
+                {connected ? 'Live' : 'Connecting…'}
               </span>
             </div>
           </div>
@@ -133,7 +111,7 @@ export default function PulseDashboard() {
               border: '1px solid rgba(255,255,255,0.15)', textDecoration: 'none',
               letterSpacing: '-0.008em', fontFamily: 'inherit'
             }}>
-              End & report
+              End &amp; report
             </Link>
           </div>
         </div>
@@ -143,7 +121,6 @@ export default function PulseDashboard() {
       <div style={{ display: 'flex', flex: 1, position: 'relative', zIndex: 1 }}>
         {/* Main area */}
         <main style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-          {/* Teacher instruction */}
           {currentPhase && (
             <div style={{
               background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
@@ -156,7 +133,6 @@ export default function PulseDashboard() {
             </div>
           )}
 
-          {/* Pulse summary */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', marginBottom: '20px' }}>
             {summaryItems.map(({ label, count, color }) => (
               <div key={label} style={{
@@ -172,7 +148,6 @@ export default function PulseDashboard() {
             ))}
           </div>
 
-          {/* Student grid */}
           {session.students.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.3)' }}>
               <div style={{ fontSize: '48px', marginBottom: '12px' }}>📱</div>
@@ -182,7 +157,7 @@ export default function PulseDashboard() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
               {session.students.map(student => (
-                <StudentCard key={student.socketId} student={student} onPushHint={handleSendHint} onWalkOver={() => {}} />
+                <StudentCard key={student.id} student={student} onPushHint={handleSendHint} onWalkOver={() => {}} />
               ))}
             </div>
           )}
@@ -224,7 +199,9 @@ export default function PulseDashboard() {
               style={{ resize: 'none', marginBottom: '16px' }} />
             <div style={{ display: 'flex', gap: '10px' }}>
               <button className="btn-ghost" onClick={() => setHintModal(null)} style={{ flex: 1 }}>Cancel</button>
-              <button className="btn-primary" onClick={handleSubmitHint} disabled={!hintText.trim()} style={{ flex: 1 }}>Send hint</button>
+              <button className="btn-primary" onClick={handleSubmitHint} disabled={!hintText.trim() || hintLoading} style={{ flex: 1 }}>
+                {hintLoading ? 'Sending…' : 'Send hint'}
+              </button>
             </div>
           </div>
         </div>

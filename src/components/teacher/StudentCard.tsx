@@ -4,7 +4,7 @@ import UnderstandingBadge from '@/components/ui/Badge'
 
 interface StudentCardProps {
   student: StudentState
-  onPushHint: (socketId: string) => void
+  onPushHint: (studentId: string) => void
   onWalkOver: (student: StudentState) => void
 }
 
@@ -74,7 +74,7 @@ export default function StudentCard({ student, onPushHint, onWalkOver }: Student
 
       <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
         <button
-          onClick={() => onPushHint(student.socketId)}
+          onClick={() => onPushHint(student.id)}
           style={{
             flex: 1, fontSize: '13px', padding: '7px',
             background: 'rgba(0,113,227,0.08)', color: 'var(--accent)',

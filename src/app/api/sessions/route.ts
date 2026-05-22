@@ -22,10 +22,11 @@ export async function POST(request: NextRequest) {
     createdAt: new Date().toISOString()
   }
 
-  setSession(session)
+  await setSession(session)
   return NextResponse.json({ session })
 }
 
 export async function GET() {
-  return NextResponse.json({ sessions: listSessions() })
+  const sessions = await listSessions()
+  return NextResponse.json({ sessions })
 }

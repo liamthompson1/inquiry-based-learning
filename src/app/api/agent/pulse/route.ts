@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       submission: Submission
     } = await request.json()
 
-    const student = session.students.find((s: StudentState) => s.socketId === studentSocketId)
+    const student = session.students.find((s: StudentState) => s.id === studentSocketId)
     if (!student) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })
     }
