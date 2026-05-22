@@ -48,27 +48,30 @@ export default function LessonPlannerPage() {
       const decoder = new TextDecoder()
       let buffer = ''
 
+      const S_PLAN  = '\x00PLAN\x00'   // length 6
+      const S_ERROR = '\x00ERROR\x00'  // length 7
+      const S_RETRY = '\x00RETRY\x00'  // length 7
+
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
         buffer += decoder.decode(value, { stream: true })
 
-        if (buffer.includes('\x00ERROR\x00')) {
-          const msg = buffer.slice(buffer.indexOf('\x00ERROR\x00') + 7).trim()
+        if (buffer.includes(S_ERROR)) {
+          const msg = buffer.slice(buffer.indexOf(S_ERROR) + S_ERROR.length).trim()
           throw new Error(msg)
         }
 
-        if (buffer.includes('\x00RETRY\x00')) {
-          // Model fallback — clear partial stream and show status message
-          const retryMsg = buffer.slice(buffer.indexOf('\x00RETRY\x00') + 8).split('\n')[0]
-          setStreamPreview(retryMsg)
-          buffer = buffer.slice(buffer.indexOf('\n', buffer.indexOf('\x00RETRY\x00')) + 1)
+        if (buffer.includes(S_RETRY)) {
+          const afterRetry = buffer.slice(buffer.indexOf(S_RETRY) + S_RETRY.length)
+          setStreamPreview(afterRetry.split('\n')[0].trim())
+          buffer = afterRetry.slice(afterRetry.indexOf('\n') + 1)
           continue
         }
 
-        if (buffer.includes('\x00PLAN\x00')) {
-          const jsonStr = buffer.slice(buffer.indexOf('\x00PLAN\x00') + 7)
+        if (buffer.includes(S_PLAN)) {
+          const jsonStr = buffer.slice(buffer.indexOf(S_PLAN) + S_PLAN.length).trim()
           const parsed = JSON.parse(jsonStr)
           setPlan(parsed)
           setStreamPreview('')
